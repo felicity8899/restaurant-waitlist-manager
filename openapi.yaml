@@ -1,0 +1,341 @@
+openapi: 3.0.3
+info:
+  title: Restaurant Waitlist & Table Manager API
+  description: >
+    Backend REST and WebSocket API contracts for the Restaurant Waitlist & Table Manager.
+    Enables guests to sign up, hosts to track/manage tables, and real-time updates.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local FastAPI Development Server
+paths:
+  /api/tables:
+    get:
+      summary: Retrieve all physical restaurant tables
+      description: Returns a complete list of physical tables with capacity and current occupancy status.
+      responses:
+        '200':
+          description: Successful retrieval of tables
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Table'
+
+  /api/tables/{tableId}/clear:
+    post:
+      summary: Clear or clean a physical table
+      description: >
+        Cycles table status: transitions an OCCUPIED table to DIRTY (and removes its seated guest relationship), 
+        or transitions a DIRTY table to AVAILABLE. Requires host PIN authorization.
+      security:
+        - PinAuth: []
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          description: The ID of the table to clear
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully cleared or advanced the table cleaning state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Table'
+        '400':
+          description: Invalid state transition
+        '401':
+          description: Unauthorized PIN missing or incorrect
+        '404':
+          description: Table not found
+
+  /api/waitlist:
+    get:
+      summary: Fetch the active waitlist queue
+      description: Returns a list of all active guest parties in chronological order of arrival.
+      responses:
+        '200':
+          description: List of waitlist entries retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WaitlistEntry'
+    post:
+      summary: Guest self-service sign up to waitlist
+      description: Adds a new guest party to the waitlist queue with an initial status of WAITING.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - guest_name
+                - party_size
+                - phone_number
+              properties:
+                guest_name:
+                  type: string
+                  example: John Doe
+                party_size:
+                  type: integer
+                  minimum: 1
+                  example: 4
+                phone_number:
+                  type: string
+                  example: "555-0199"
+      responses:
+        '201':
+          description: Waitlist entry created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntry'
+        '400':
+          description: Invalid input parameters
+
+  /api/waitlist/{partyId}/seat:
+    post:
+      summary: Seat a waitlist party at a physical table
+      description: >
+        Seats a WAITING or NOTIFIED party at an AVAILABLE table with sufficient capacity. 
+        Requires host PIN authorization.
+      security:
+        - PinAuth: []
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          description: The ID of the guest party to seat
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - table_id
+              properties:
+                table_id:
+                  type: integer
+                  example: 1
+      responses:
+        '200':
+          description: Successfully seated party at table
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  party:
+                    $ref: '#/components/schemas/WaitlistEntry'
+                  table:
+                    $ref: '#/components/schemas/Table'
+        '400':
+          description: Capacity mismatch or table is unavailable
+        '401':
+          description: Unauthorized PIN missing or incorrect
+        '404':
+          description: Party or table not found
+
+  /api/waitlist/{partyId}/notify:
+    post:
+      summary: Notify a guest that their table is ready
+      description: >
+        Sends a simulated SMS notification and updates the guest status to NOTIFIED. 
+        Requires host PIN authorization.
+      security:
+        - PinAuth: []
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          description: The ID of the guest party to notify
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Guest notified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntry'
+        '400':
+          description: Invalid state transition (guest already seated or cancelled)
+        '401':
+          description: Unauthorized PIN missing or incorrect
+        '404':
+          description: Party not found
+
+  /api/waitlist/{partyId}/cancel:
+    post:
+      summary: Cancel a waitlist reservation
+      description: Marks a guest reservation as CANCELLED. If the guest was seated, frees up their table.
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          description: The ID of the guest party to cancel
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reservation cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntry'
+        '404':
+          description: Party not found
+
+  /api/sms-logs:
+    get:
+      summary: Fetch outbound SMS simulation logs
+      description: Retrieves all sent mock text messages for developer inspection. Requires host PIN authorization.
+      security:
+        - PinAuth: []
+      responses:
+        '200':
+          description: SMS logs successfully retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SMSLog'
+        '401':
+          description: Unauthorized PIN missing or incorrect
+
+  /ws:
+    get:
+      summary: Real-Time WebSocket Synchronization Hub
+      description: >
+        Persistent WebSocket endpoint broadcasting real-time server mutations to connected clients.
+        Broacasts the following text event frames:
+          - `QUEUE_UPDATE`: Broadcasted when guests join, get notified, get seated, or cancel.
+          - `TABLE_UPDATE`: Broadcasted when table states cycle or are occupied.
+          - `SMS_UPDATE`: Broadcasted when a new mock SMS notification is sent.
+      responses:
+        '101':
+          description: WebSocket protocol handshake successful
+
+components:
+  securitySchemes:
+    PinAuth:
+      type: apiKey
+      in: header
+      name: X-PIN-Auth
+      description: Staff validation PIN (Expected Value: "1234")
+
+  schemas:
+    TableStatus:
+      type: string
+      enum:
+        - AVAILABLE
+        - OCCUPIED
+        - DIRTY
+
+    Table:
+      type: object
+      required:
+        - id
+        - name
+        - capacity
+        - status
+        - current_party_id
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: Table 1
+        capacity:
+          type: integer
+          example: 4
+        status:
+          $ref: '#/components/schemas/TableStatus'
+        current_party_id:
+          type: integer
+          nullable: true
+          example: null
+
+    WaitlistStatus:
+      type: string
+      enum:
+        - WAITING
+        - NOTIFIED
+        - SEATED
+        - CANCELLED
+
+    WaitlistEntry:
+      type: object
+      required:
+        - id
+        - guest_name
+        - party_size
+        - phone_number
+        - status
+        - joined_at
+        - notified_at
+        - seated_at
+        - table_id
+      properties:
+        id:
+          type: integer
+        guest_name:
+          type: string
+          example: Jane Smith
+        party_size:
+          type: integer
+          example: 4
+        phone_number:
+          type: string
+          example: "555-0244"
+        status:
+          $ref: '#/components/schemas/WaitlistStatus'
+        joined_at:
+          type: string
+          format: date-time
+          example: "2026-09-14T03:00:00.000Z"
+        notified_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        seated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        table_id:
+          type: integer
+          nullable: true
+          example: null
+
+    SMSLog:
+      type: object
+      required:
+        - id
+        - phone_number
+        - message
+        - sent_at
+      properties:
+        id:
+          type: integer
+        phone_number:
+          type: string
+          example: "555-0199"
+        message:
+          type: string
+          example: Hi John Doe, your table is ready! Please proceed to the host stand.
+        sent_at:
+          type: string
+          format: date-time
+          example: "2026-09-14T03:05:00.000Z"
