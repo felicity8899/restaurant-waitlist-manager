@@ -23,8 +23,8 @@ describe('ApiContext & useApi', () => {
       </ApiProvider>
     );
 
-    // By default, it should use MockApiService if no env variables say otherwise
-    expect(screen.getByTestId('is-mock')).toHaveTextContent('YES');
+    // By default, it should use FastApiService if no env variables say otherwise
+    expect(screen.getByTestId('is-mock')).toHaveTextContent('NO');
   });
 
   it('should accept a service override for test injections', () => {

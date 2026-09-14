@@ -1,66 +1,138 @@
-import threading
+import os
+import sys
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Set
 from fastapi import WebSocket
+from sqlalchemy import create_engine, Column, Integer, String, DateTime
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
 
-class InMemoryStore:
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///restaurant.db")
+
+# SQLite needs check_same_thread: False
+if DATABASE_URL.startswith("sqlite"):
+    if DATABASE_URL == "sqlite://" or DATABASE_URL == "sqlite:///:memory:":
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool
+        )
+    else:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False}
+        )
+else:
+    engine = create_engine(DATABASE_URL)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class DBTable(Base):
+    __tablename__ = "tables"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    capacity = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="AVAILABLE")
+    current_party_id = Column(Integer, nullable=True)
+
+class DBWaitlistEntry(Base):
+    __tablename__ = "waitlist"
+    id = Column(Integer, primary_key=True, index=True)
+    guest_name = Column(String, nullable=False)
+    party_size = Column(Integer, nullable=False)
+    phone_number = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="WAITING")
+    joined_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    notified_at = Column(DateTime, nullable=True)
+    seated_at = Column(DateTime, nullable=True)
+    table_id = Column(Integer, nullable=True)
+
+class DBSMSLog(Base):
+    __tablename__ = "sms_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    phone_number = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    sent_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+class DatabaseStore:
     def __init__(self):
-        self.lock = threading.Lock()
+        is_testing = "pytest" in sys.modules
+        is_memory = DATABASE_URL == "sqlite://" or DATABASE_URL == "sqlite:///:memory:"
         
-        # Physical tables seeding
-        self.tables: List[Dict[str, Any]] = [
-            {"id": 1, "name": "Table 1", "capacity": 2, "status": "AVAILABLE", "current_party_id": None},
-            {"id": 2, "name": "Table 2", "capacity": 2, "status": "AVAILABLE", "current_party_id": None},
-            {"id": 3, "name": "Table 3", "capacity": 4, "status": "AVAILABLE", "current_party_id": None},
-            {"id": 4, "name": "Table 4", "capacity": 4, "status": "AVAILABLE", "current_party_id": None},
-            {"id": 5, "name": "Booth 5", "capacity": 6, "status": "AVAILABLE", "current_party_id": None},
-            {"id": 6, "name": "Booth 6", "capacity": 6, "status": "AVAILABLE", "current_party_id": None},
-            {"id": 7, "name": "Table 7", "capacity": 8, "status": "AVAILABLE", "current_party_id": None},
-        ]
-        
-        # Waitlist seeding
-        self.waitlist: List[Dict[str, Any]] = [
-            {
-                "id": 1,
-                "guest_name": "John Doe",
-                "party_size": 2,
-                "phone_number": "555-0199",
-                "status": "WAITING",
-                "joined_at": datetime.utcnow(),
-                "notified_at": None,
-                "seated_at": None,
-                "table_id": None
-            },
-            {
-                "id": 2,
-                "guest_name": "Jane Smith",
-                "party_size": 4,
-                "phone_number": "555-0244",
-                "status": "WAITING",
-                "joined_at": datetime.utcnow(),
-                "notified_at": None,
-                "seated_at": None,
-                "table_id": None
-            }
-        ]
-        
-        self.sms_logs: List[Dict[str, Any]] = []
-        
-        self.next_waitlist_id = 3
-        self.next_sms_id = 1
-        
-        # WebSockets connections set
+        if is_testing or is_memory:
+            # Recreate tables to ensure test isolation
+            Base.metadata.drop_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
+            self._seed_default_data()
+        else:
+            Base.metadata.create_all(bind=engine)
+            # Seed only if Table table is empty
+            db = SessionLocal()
+            try:
+                count = db.query(DBTable).count()
+                if count == 0:
+                    self._seed_default_data()
+            finally:
+                db.close()
+                
         self.active_websockets: Set[WebSocket] = set()
+
+    def _seed_default_data(self):
+        db = SessionLocal()
+        try:
+            # Seed physical tables
+            tables = [
+                DBTable(id=1, name="Table 1", capacity=2, status="AVAILABLE", current_party_id=None),
+                DBTable(id=2, name="Table 2", capacity=2, status="AVAILABLE", current_party_id=None),
+                DBTable(id=3, name="Table 3", capacity=4, status="AVAILABLE", current_party_id=None),
+                DBTable(id=4, name="Table 4", capacity=4, status="AVAILABLE", current_party_id=None),
+                DBTable(id=5, name="Booth 5", capacity=6, status="AVAILABLE", current_party_id=None),
+                DBTable(id=6, name="Booth 6", capacity=6, status="AVAILABLE", current_party_id=None),
+                DBTable(id=7, name="Table 7", capacity=8, status="AVAILABLE", current_party_id=None),
+            ]
+            db.add_all(tables)
+            
+            # Seed waitlist
+            waitlist = [
+                DBWaitlistEntry(
+                    id=1,
+                    guest_name="John Doe",
+                    party_size=2,
+                    phone_number="555-0199",
+                    status="WAITING",
+                    joined_at=datetime.utcnow(),
+                    notified_at=None,
+                    seated_at=None,
+                    table_id=None
+                ),
+                DBWaitlistEntry(
+                    id=2,
+                    guest_name="Jane Smith",
+                    party_size=4,
+                    phone_number="555-0244",
+                    status="WAITING",
+                    joined_at=datetime.utcnow(),
+                    notified_at=None,
+                    seated_at=None,
+                    table_id=None
+                )
+            ]
+            db.add_all(waitlist)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     # --- WebSocket connection management ---
     def register_websocket(self, websocket: WebSocket):
-        with self.lock:
-            self.active_websockets.add(websocket)
+        self.active_websockets.add(websocket)
 
     def unregister_websocket(self, websocket: WebSocket):
-        with self.lock:
-            if websocket in self.active_websockets:
-                self.active_websockets.remove(websocket)
+        if websocket in self.active_websockets:
+            self.active_websockets.remove(websocket)
 
     async def broadcast_event(self, event: str):
         sockets = list(self.active_websockets)
@@ -72,127 +144,236 @@ class InMemoryStore:
 
     # --- Tables Operations ---
     def get_tables(self) -> List[Dict[str, Any]]:
-        with self.lock:
-            return [dict(t) for t in self.tables]
+        db = SessionLocal()
+        try:
+            tables = db.query(DBTable).order_by(DBTable.id).all()
+            return [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "capacity": t.capacity,
+                    "status": t.status,
+                    "current_party_id": t.current_party_id
+                }
+                for t in tables
+            ]
+        finally:
+            db.close()
 
     def clear_table(self, table_id: int) -> Optional[Dict[str, Any]]:
-        with self.lock:
-            for t in self.tables:
-                if t["id"] == table_id:
-                    if t["status"] == "OCCUPIED":
-                        t["status"] = "DIRTY"
-                        t["current_party_id"] = None
-                    elif t["status"] == "DIRTY":
-                        t["status"] = "AVAILABLE"
-                    return dict(t)
-            return None
+        db = SessionLocal()
+        try:
+            t = db.query(DBTable).filter(DBTable.id == table_id).first()
+            if not t:
+                return None
+            if t.status == "OCCUPIED":
+                t.status = "DIRTY"
+                t.current_party_id = None
+            elif t.status == "DIRTY":
+                t.status = "AVAILABLE"
+            db.commit()
+            return {
+                "id": t.id,
+                "name": t.name,
+                "capacity": t.capacity,
+                "status": t.status,
+                "current_party_id": t.current_party_id
+            }
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     # --- Waitlist Operations ---
     def get_waitlist(self) -> List[Dict[str, Any]]:
-        with self.lock:
-            # Return copy of the waitlist
-            return [dict(w) for w in self.waitlist]
+        db = SessionLocal()
+        try:
+            entries = db.query(DBWaitlistEntry).order_by(DBWaitlistEntry.id).all()
+            return [
+                {
+                    "id": w.id,
+                    "guest_name": w.guest_name,
+                    "party_size": w.party_size,
+                    "phone_number": w.phone_number,
+                    "status": w.status,
+                    "joined_at": w.joined_at,
+                    "notified_at": w.notified_at,
+                    "seated_at": w.seated_at,
+                    "table_id": w.table_id
+                }
+                for w in entries
+            ]
+        finally:
+            db.close()
 
     def add_to_waitlist(self, guest_name: str, party_size: int, phone_number: str) -> Dict[str, Any]:
-        with self.lock:
-            entry = {
-                "id": self.next_waitlist_id,
-                "guest_name": guest_name,
-                "party_size": party_size,
-                "phone_number": phone_number,
-                "status": "WAITING",
-                "joined_at": datetime.utcnow(),
-                "notified_at": None,
-                "seated_at": None,
-                "table_id": None
+        db = SessionLocal()
+        try:
+            entry = DBWaitlistEntry(
+                guest_name=guest_name,
+                party_size=party_size,
+                phone_number=phone_number,
+                status="WAITING",
+                joined_at=datetime.utcnow()
+            )
+            db.add(entry)
+            db.commit()
+            db.refresh(entry)
+            return {
+                "id": entry.id,
+                "guest_name": entry.guest_name,
+                "party_size": entry.party_size,
+                "phone_number": entry.phone_number,
+                "status": entry.status,
+                "joined_at": entry.joined_at,
+                "notified_at": entry.notified_at,
+                "seated_at": entry.seated_at,
+                "table_id": entry.table_id
             }
-            self.next_waitlist_id += 1
-            self.waitlist.append(entry)
-            return dict(entry)
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def notify_party(self, party_id: int) -> Optional[Dict[str, Any]]:
-        with self.lock:
-            for w in self.waitlist:
-                if w["id"] == party_id:
-                    if w["status"] != "WAITING":
-                        return None
-                    w["status"] = "NOTIFIED"
-                    w["notified_at"] = datetime.utcnow()
-                    
-                    # Log mock SMS
-                    sms = {
-                        "id": self.next_sms_id,
-                        "phone_number": w["phone_number"],
-                        "message": f"Hi {w['guest_name']}, your table is ready! Please proceed to the host stand.",
-                        "sent_at": datetime.utcnow()
-                    }
-                    self.next_sms_id += 1
-                    self.sms_logs.append(sms)
-                    return dict(w)
-            return None
+        db = SessionLocal()
+        try:
+            w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+            if not w or w.status != "WAITING":
+                return None
+            w.status = "NOTIFIED"
+            w.notified_at = datetime.utcnow()
+            
+            # Log mock SMS
+            sms = DBSMSLog(
+                phone_number=w.phone_number,
+                message=f"Hi {w.guest_name}, your table is ready! Please proceed to the host stand.",
+                sent_at=datetime.utcnow()
+            )
+            db.add(sms)
+            db.commit()
+            db.refresh(w)
+            return {
+                "id": w.id,
+                "guest_name": w.guest_name,
+                "party_size": w.party_size,
+                "phone_number": w.phone_number,
+                "status": w.status,
+                "joined_at": w.joined_at,
+                "notified_at": w.notified_at,
+                "seated_at": w.seated_at,
+                "table_id": w.table_id
+            }
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def seat_party(self, party_id: int, table_id: int) -> Optional[Dict[str, Any]]:
-        with self.lock:
-            # 1. Find party and table
-            party = None
-            table = None
-            for w in self.waitlist:
-                if w["id"] == party_id:
-                    party = w
-                    break
-            for t in self.tables:
-                if t["id"] == table_id:
-                    table = t
-                    break
+        db = SessionLocal()
+        try:
+            w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+            t = db.query(DBTable).filter(DBTable.id == table_id).first()
             
-            if not party or not table:
+            if not w or not t:
                 return None
                 
-            # 2. Check rules
-            if party["status"] not in ("WAITING", "NOTIFIED"):
+            if w.status not in ("WAITING", "NOTIFIED"):
                 return None
-            if table["status"] != "AVAILABLE":
+            if t.status != "AVAILABLE":
                 return None
-            if table["capacity"] < party["party_size"]:
+            if t.capacity < w.party_size:
                 return None
                 
-            # 3. Update status
-            party["status"] = "SEATED"
-            party["table_id"] = table_id
-            party["seated_at"] = datetime.utcnow()
+            w.status = "SEATED"
+            w.table_id = table_id
+            w.seated_at = datetime.utcnow()
             
-            table["status"] = "OCCUPIED"
-            table["current_party_id"] = party_id
+            t.status = "OCCUPIED"
+            t.current_party_id = party_id
             
-            return {"party": dict(party), "table": dict(table)}
+            db.commit()
+            db.refresh(w)
+            db.refresh(t)
+            return {
+                "party": {
+                    "id": w.id,
+                    "guest_name": w.guest_name,
+                    "party_size": w.party_size,
+                    "phone_number": w.phone_number,
+                    "status": w.status,
+                    "joined_at": w.joined_at,
+                    "notified_at": w.notified_at,
+                    "seated_at": w.seated_at,
+                    "table_id": w.table_id
+                },
+                "table": {
+                    "id": t.id,
+                    "name": t.name,
+                    "capacity": t.capacity,
+                    "status": t.status,
+                    "current_party_id": t.current_party_id
+                }
+            }
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def cancel_party(self, party_id: int) -> Optional[Dict[str, Any]]:
-        with self.lock:
-            target_party = None
-            for w in self.waitlist:
-                if w["id"] == party_id:
-                    target_party = w
-                    break
-            
-            if not target_party:
+        db = SessionLocal()
+        try:
+            w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+            if not w:
                 return None
                 
-            # If they were seated, clear their table back to AVAILABLE directly
-            if target_party["status"] == "SEATED" and target_party["table_id"] is not None:
-                for t in self.tables:
-                    if t["id"] == target_party["table_id"]:
-                        t["status"] = "AVAILABLE"
-                        t["current_party_id"] = None
-                        break
+            if w.status == "SEATED" and w.table_id is not None:
+                t = db.query(DBTable).filter(DBTable.id == w.table_id).first()
+                if t:
+                    t.status = "AVAILABLE"
+                    t.current_party_id = None
             
-            target_party["status"] = "CANCELLED"
-            target_party["table_id"] = None
-            return dict(target_party)
+            w.status = "CANCELLED"
+            w.table_id = None
+            db.commit()
+            db.refresh(w)
+            return {
+                "id": w.id,
+                "guest_name": w.guest_name,
+                "party_size": w.party_size,
+                "phone_number": w.phone_number,
+                "status": w.status,
+                "joined_at": w.joined_at,
+                "notified_at": w.notified_at,
+                "seated_at": w.seated_at,
+                "table_id": w.table_id
+            }
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     # --- SMS operations ---
     def get_sms_logs(self) -> List[Dict[str, Any]]:
-        with self.lock:
-            return [dict(s) for s in self.sms_logs]
+        db = SessionLocal()
+        try:
+            logs = db.query(DBSMSLog).order_by(DBSMSLog.id).all()
+            return [
+                {
+                    "id": s.id,
+                    "phone_number": s.phone_number,
+                    "message": s.message,
+                    "sent_at": s.sent_at
+                }
+                for s in logs
+            ]
+        finally:
+            db.close()
 
-# Global single instance of our store
-store = InMemoryStore()
+# Create a single global instance
+store = DatabaseStore()

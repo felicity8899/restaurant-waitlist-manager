@@ -16,8 +16,8 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children, serviceOverr
       return serviceOverride;
     }
 
-    // Default to using the mock API unless VITE_USE_MOCK_API is explicitly 'false'
-    const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false';
+    // Default to using the real backend unless VITE_USE_MOCK_API is explicitly 'true'
+    const useMock = import.meta.env.VITE_USE_MOCK_API === 'true';
     
     if (useMock) {
       console.log('App is running with Centralized Mock API Service.');
