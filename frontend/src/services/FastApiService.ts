@@ -61,8 +61,10 @@ export class FastApiService implements ApiService {
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${path}`;
+    const token = sessionStorage.getItem('token');
     const headers = {
       'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...(options?.headers || {}),
     };
 
@@ -131,6 +133,46 @@ export class FastApiService implements ApiService {
   // --- SMS logs ---
   async getSmsLogs(): Promise<SMSLog[]> {
     return this.request<SMSLog[]>('/api/sms-logs');
+  }
+
+  // --- Authentication ---
+  async login(pin: string): Promise<boolean> {
+    const url = `${this.baseUrl}/api/auth/login`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: 'admin',
+        password: pin,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorMessage = 'Incorrect username or password';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorJson.message || errorMessage;
+      } catch {}
+      throw new Error(errorMessage);
+    }
+
+    const data = await res.json();
+    if (data.access_token) {
+      sessionStorage.setItem('token', data.access_token);
+      return true;
+    }
+    return false;
+  }
+
+  logout(): void {
+    sessionStorage.removeItem('token');
+  }
+
+  isAuthenticated(): boolean {
+    return !!sessionStorage.getItem('token');
   }
 
   // --- Real-time subscription ---

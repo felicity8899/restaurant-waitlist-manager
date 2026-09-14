@@ -15,6 +15,11 @@ export interface ApiService {
   // SMS logs
   getSmsLogs(): Promise<SMSLog[]>;
 
+  // Authentication
+  login(pin: string): Promise<boolean>;
+  logout(): void;
+  isAuthenticated(): boolean;
+
   // Real-time synchronization subscription
   subscribe(callback: (event: string) => void): () => void;
 }

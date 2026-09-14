@@ -4,6 +4,26 @@ A real-time, database-backed restaurant queue and table management system. It fe
 
 ---
 
+## ✨ Key Features
+
+### 🔐 Administrative & Staff Controls
+- **Host & Staff PIN Authentication**: Administrative screens are secured using a simulated 4-digit PIN access portal (`1234`), saving an authentication session in local storage.
+- **Dynamic Waitlist Queue Management**: Interactive queue dashboard allowing staff to track wait times, send table-ready alerts, seat parties, or cancel reservations.
+- **Interactive Floor Layout Map**: Color-coded visual tables map reflecting real-time occupancy status:
+  - 🟢 **AVAILABLE**: Ready for seating.
+  - 🔴 **OCCUPIED**: Seating a party automatically updates the table state and links it to the guest.
+  - 🟡 **DIRTY**: Clearing a seated table marks it as dirty for sanitation; clearing a second time restores it to available.
+
+### 📱 Customer-Facing Guest Utilities
+- **Self-Service Waitlist Registration**: Clean, responsive mobile-friendly form at `/guest/join` allows customers to easily register their name, party size, and phone number to the waitlist queue.
+- **Live Real-Time Guest Tracker**: Personalized tracker screen at `/guest/track/{party_id}` dynamically updates to show current queue position, waiting status, and instant animated banners when notified by staff.
+
+### ⚡ Real-Time Synchronization & SMS Simulation
+- **Instantaneous WebSockets Update Broadcasts**: Active state changes (waitlist entries, table configurations, notifications) are instantly propagated using FastAPI WebSockets.
+- **Integrated SMS Simulator Widget**: Outgoing simulated SMS alerts are dynamically captured in a dedicated console feed, enabling seamless real-time visual testing of client notifications.
+
+---
+
 ## 🏗️ Architecture
 
 - **Frontend**: React (TypeScript, Vite) with Lucide Icons. Default configured to connect to the real backend.

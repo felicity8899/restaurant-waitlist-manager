@@ -220,6 +220,23 @@ export class MockApiService implements ApiService {
     return this.delay([...this.smsLogs]);
   }
 
+  // --- Authentication ---
+  async login(pin: string): Promise<boolean> {
+    if (pin === '1234') {
+      sessionStorage.setItem('token', 'mock_token_1234');
+      return true;
+    }
+    throw new Error('Incorrect username or password');
+  }
+
+  logout(): void {
+    sessionStorage.removeItem('token');
+  }
+
+  isAuthenticated(): boolean {
+    return !!sessionStorage.getItem('token');
+  }
+
   // --- Real-time subscription ---
   subscribe(callback: (event: string) => void): () => void {
     this.subscribers.push(callback);
