@@ -20,3 +20,9 @@ yarn-error.log*
 .local/
 .npm/
 .ssh/
+
+# Python
+__pycache__/
+*.pyc
+.cache/
+.pytest_cache/
