@@ -10,7 +10,7 @@ export class FastApiService implements ApiService {
 
   constructor() {
     // Determine backend URLs based on environment variables or defaults
-    const backendHost = import.meta.env.VITE_API_HOST || 'localhost:8000';
+    const backendHost = import.meta.env.VITE_API_HOST || `${window.location.hostname}:8000`;
     const isSsl = window.location.protocol === 'https:';
     this.baseUrl = `${isSsl ? 'https' : 'http'}://${backendHost}`;
     this.wsUrl = `${isSsl ? 'wss' : 'ws'}://${backendHost}/ws`;

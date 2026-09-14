@@ -160,3 +160,14 @@ def test_cancel_party_public():
     # Confirm table became AVAILABLE directly
     tables_resp = client.get("/api/tables")
     assert tables_resp.json()[0]["status"] == "AVAILABLE"
+
+def test_websocket_connection():
+    # 1. Assert initial active websockets are 0
+    assert len(store.active_websockets) == 0
+
+    # 2. Connect to /ws and assert websocket is registered
+    with client.websocket_connect("/ws") as websocket:
+        assert len(store.active_websockets) == 1
+        
+    # 3. Assert websocket is unregistered upon closing the connection
+    assert len(store.active_websockets) == 0
