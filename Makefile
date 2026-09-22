@@ -1,4 +1,4 @@
-.PHONY: help install start start-backend start-frontend test test-backend test-frontend
+.PHONY: help install start start-backend start-frontend test test-backend test-frontend test-integration e2e
 
 help:
 	@echo "Available commands:"
@@ -9,6 +9,8 @@ help:
 	@echo "  make test            - Run both backend and frontend tests"
 	@echo "  make test-backend    - Run backend unit tests"
 	@echo "  make test-frontend   - Run frontend unit tests"
+	@echo "  make test-integration - Run end-to-end integration tests against docker-compose stack"
+	@echo "  make e2e             - Run end-to-end integration tests against docker-compose stack"
 
 install:
 	@echo "Installing backend dependencies..."
@@ -37,3 +39,13 @@ test-backend:
 test-frontend:
 	@echo "Running frontend tests..."
 	cd frontend && npm test
+
+test-integration:
+	@echo "Running Docker Compose integration tests..."
+	./scripts/integration_test.py
+
+e2e:
+	@echo "Running end-to-end integration tests..."
+	./scripts/integration_test.py
+
+

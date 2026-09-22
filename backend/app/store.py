@@ -9,6 +9,10 @@ from sqlalchemy.pool import StaticPool
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///restaurant.db")
 
+# Normalize old 'postgres://' URLs (often provided by cloud platforms like Heroku/Render) to 'postgresql://'
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # SQLite needs check_same_thread: False
 if DATABASE_URL.startswith("sqlite"):
     if DATABASE_URL == "sqlite://" or DATABASE_URL == "sqlite:///:memory:":

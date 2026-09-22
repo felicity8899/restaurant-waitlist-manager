@@ -1,0 +1,26 @@
+# Ignore build outputs and cache directories
+**/node_modules/
+**/dist/
+**/.pytest_cache/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Ignore local environment files and logs
+**/.env
+**/.env.*
+**/*.log
+
+# Ignore git metadata and system files
+.git/
+.gitignore
+.dockerignore
+.DS_Store
+README.md
+DESIGN.md
+spec.md
+AGENTS.md
+Makefile
+openapi.yaml
+_docs/
