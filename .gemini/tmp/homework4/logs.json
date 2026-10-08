@@ -1,0 +1,23 @@
+[
+  {
+    "sessionId": "3dd68800-ccc5-4a9f-97dc-a95ab623aaf9",
+    "messageId": 0,
+    "type": "user",
+    "message": "帮我git add  到github 上面",
+    "timestamp": "2026-10-08T16:38:01.098Z"
+  },
+  {
+    "sessionId": "3dd68800-ccc5-4a9f-97dc-a95ab623aaf9",
+    "messageId": 1,
+    "type": "user",
+    "message": "帮我传到git hub",
+    "timestamp": "2026-10-08T16:38:31.407Z"
+  },
+  {
+    "sessionId": "3dd68800-ccc5-4a9f-97dc-a95ab623aaf9",
+    "messageId": 2,
+    "type": "user",
+    "message": "/quit",
+    "timestamp": "2026-10-08T16:38:40.531Z"
+  }
+]

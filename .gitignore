@@ -1,0 +1,11 @@
+.bash*
+.*_history
+.ssh/
+.aws/
+.cache/
+.config/
+.local/
+.docker/
+.venv/
+*.pem
+*.key

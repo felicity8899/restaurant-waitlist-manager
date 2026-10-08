@@ -1,0 +1,19 @@
+0 verbose cli /usr/bin/node /usr/bin/npm
+1 info using npm@11.19.0
+2 info using node@v24.21.0
+3 silly config load:file:/usr/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/ec2-user/frontend/.npmrc
+5 silly config load:file:/home/ec2-user/.npmrc
+6 silly config load:file:/usr/etc/npmrc
+7 verbose title npm run test
+8 verbose argv "run" "test"
+9 verbose logfile logs-max:10 dir:/home/ec2-user/.npm/_logs/2026-09-22T02_57_21_745Z-
+10 verbose logfile /home/ec2-user/.npm/_logs/2026-09-22T02_57_21_745Z-debug-0.log
+11 silly logfile start cleaning logs, removing 1 files
+12 silly logfile done cleaning log files
+13 verbose cwd /home/ec2-user/frontend
+14 verbose os Linux 6.18.44-99.149.amzn2023.x86_64
+15 verbose node v24.21.0
+16 verbose npm  v11.19.0
+17 verbose exit 0
+18 info ok

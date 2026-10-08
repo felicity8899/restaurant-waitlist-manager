@@ -1,0 +1,2098 @@
+<untrusted_context>
+Output: ========================================================================================== test session starts ===========================================================================================
+platform linux -- Python 3.9.25, pytest-8.4.2, pluggy-1.6.0
+rootdir: /home/ec2-user/backend
+plugins: anyio-4.12.1
+collected 13 items                                                                                                                                                                                       
+
+tests/test_api.py .FFF...FFFFF                                                                                                                                                                     [ 92%]
+tests/test_database.py .                                                                                                                                                                           [100%]
+
+================================================================================================ FAILURES ================================================================================================
+_________________________________________________________________________________________ test_get_tables_public _________________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa4c5424f0>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4d02e670>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa4c550fa0>, parameters = [()]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa4cfc9f10>
+statement = 'SELECT tables.id AS tables_id, tables.name AS tables_name, tables.capacity AS tables_capacity, tables.status AS tables_status, tables.current_party_id AS tables_current_party_id \nFROM tables ORDER BY tables.id'
+parameters = (), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4d02e670>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: tables
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_get_tables_public():
+>       response = client.get("/api/tables")
+
+tests/test_api.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:479: in get
+    return super().get(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1053: in get
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/tables.py:11: in get_all_tables
+    return store.get_tables()
+app/store.py:138: in get_tables
+    tables = db.query(DBTable).order_by(DBTable.id).all()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2711: in all
+    return self._iter().all()  # type: ignore
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa4cfc9f10>
+statement = 'SELECT tables.id AS tables_id, tables.name AS tables_name, tables.capacity AS tables_capacity, tables.status AS tables_status, tables.current_party_id AS tables_current_party_id \nFROM tables ORDER BY tables.id'
+parameters = (), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4d02e670>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: tables
+E       [SQL: SELECT tables.id AS tables_id, tables.name AS tables_name, tables.capacity AS tables_capacity, tables.status AS tables_status, tables.current_party_id AS tables_current_party_id 
+E       FROM tables ORDER BY tables.id]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+________________________________________________________________________________________ test_get_waitlist_public ________________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa47820940>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa47820580>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa478207c0>, parameters = [()]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47903810>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist ORDER BY waitlist.id'
+parameters = (), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa47820580>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: waitlist
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_get_waitlist_public():
+>       response = client.get("/api/waitlist")
+
+tests/test_api.py:29: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:479: in get
+    return super().get(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1053: in get
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/waitlist.py:11: in get_active_waitlist
+    return store.get_waitlist()
+app/store.py:181: in get_waitlist
+    entries = db.query(DBWaitlistEntry).order_by(DBWaitlistEntry.id).all()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2711: in all
+    return self._iter().all()  # type: ignore
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47903810>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist ORDER BY waitlist.id'
+parameters = (), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa47820580>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+E       [SQL: SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_size, waitlist.phone_number AS waitlist_phone_number, waitlist.status AS waitlist_status, waitlist.joined_at AS waitlist_joined_at, waitlist.notified_at AS waitlist_notified_at, waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id 
+E       FROM waitlist ORDER BY waitlist.id]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+___________________________________________________________________________________________ test_join_waitlist ___________________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa472ae610>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa472aed30>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa472ae640>
+parameters = [('Alice Cooper', 3, '555-1122', 'WAITING', '2026-09-14 15:07:56.052348', None, ...)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa471edea0>
+statement = 'INSERT INTO waitlist (guest_name, party_size, phone_number, status, joined_at, notified_at, seated_at, table_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+parameters = ('Alice Cooper', 3, '555-1122', 'WAITING', '2026-09-14 15:07:56.052348', None, ...), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa472aed30>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: waitlist
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_join_waitlist():
+        payload = {
+            "guest_name": "Alice Cooper",
+            "party_size": 3,
+            "phone_number": "555-1122"
+        }
+>       response = client.post("/api/waitlist", json=payload)
+
+tests/test_api.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:552: in post
+    return super().post(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/waitlist.py:16: in join_waitlist
+    new_entry = store.add_to_waitlist(guest.guest_name, guest.party_size, guest.phone_number)
+app/store.py:210: in add_to_waitlist
+    db.commit()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2035: in commit
+    trans.commit(_to_root=True)
+<string>:2: in commit
+    ???
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:1316: in commit
+    self._prepare_impl()
+<string>:2: in _prepare_impl
+    ???
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:1290: in _prepare_impl
+    self.session.flush()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:4489: in _flush
+    transaction.rollback(_capture_exception=True)
+../.local/lib/python3.9/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/persistence.py:94: in save_obj
+    _emit_insert_statements(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/persistence.py:1234: in _emit_insert_statements
+    result = connection.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa471edea0>
+statement = 'INSERT INTO waitlist (guest_name, party_size, phone_number, status, joined_at, notified_at, seated_at, table_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+parameters = ('Alice Cooper', 3, '555-1122', 'WAITING', '2026-09-14 15:07:56.052348', None, ...), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa472aed30>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+E       [SQL: INSERT INTO waitlist (guest_name, party_size, phone_number, status, joined_at, notified_at, seated_at, table_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)]
+E       [parameters: ('Alice Cooper', 3, '555-1122', 'WAITING', '2026-09-14 15:07:56.052348', None, None, None)]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+______________________________________________________________________________________ test_notify_party_with_auth _______________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa47a3e880>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4725d430>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa4725d610>
+parameters = [(1, 1, 0)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa477ca030>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4725d430>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: waitlist
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_notify_party_with_auth():
+        headers = get_auth_headers()
+>       response = client.post("/api/waitlist/1/notify", headers=headers)
+
+tests/test_api.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:552: in post
+    return super().post(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/waitlist.py:24: in notify_party
+    updated_entry = store.notify_party(party_id)
+app/store.py:232: in notify_party
+    w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2766: in first
+    return self.limit(1)._iter().first()  # type: ignore
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa477ca030>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4725d430>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+E       [SQL: SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_size, waitlist.phone_number AS waitlist_phone_number, waitlist.status AS waitlist_status, waitlist.joined_at AS waitlist_joined_at, waitlist.notified_at AS waitlist_notified_at, waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id 
+E       FROM waitlist 
+E       WHERE waitlist.id = ?
+E        LIMIT ? OFFSET ?]
+E       [parameters: (1, 1, 0)]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+_______________________________________________________________________________________ test_seat_party_with_auth ________________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa4c063a00>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c0639d0>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa4725d610>
+parameters = [(1, 1, 0)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f355e0>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c0639d0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: waitlist
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_seat_party_with_auth():
+        headers = get_auth_headers()
+    
+        # Seating John Doe (party size 2) at Table 1 (capacity 2)
+>       response = client.post("/api/waitlist/1/seat", json={"table_id": 1}, headers=headers)
+
+tests/test_api.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:552: in post
+    return super().post(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/waitlist.py:37: in seat_party
+    result = store.seat_party(party_id, payload.table_id)
+app/store.py:267: in seat_party
+    w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2766: in first
+    return self.limit(1)._iter().first()  # type: ignore
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f355e0>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c0639d0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+E       [SQL: SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_size, waitlist.phone_number AS waitlist_phone_number, waitlist.status AS waitlist_status, waitlist.joined_at AS waitlist_joined_at, waitlist.notified_at AS waitlist_notified_at, waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id 
+E       FROM waitlist 
+E       WHERE waitlist.id = ?
+E        LIMIT ? OFFSET ?]
+E       [parameters: (1, 1, 0)]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+___________________________________________________________________________________ test_seat_party_capacity_mismatch ____________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa4c428460>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c428af0>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa4725d610>
+parameters = [(2, 1, 0)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f2ec70>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (2, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c428af0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: waitlist
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_seat_party_capacity_mismatch():
+        headers = get_auth_headers()
+    
+        # Attempting to seat Jane Smith (party size 4) at Table 1 (capacity 2) should fail
+>       response = client.post("/api/waitlist/2/seat", json={"table_id": 1}, headers=headers)
+
+tests/test_api.py:128: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:552: in post
+    return super().post(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/waitlist.py:37: in seat_party
+    result = store.seat_party(party_id, payload.table_id)
+app/store.py:267: in seat_party
+    w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2766: in first
+    return self.limit(1)._iter().first()  # type: ignore
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f2ec70>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (2, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c428af0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+E       [SQL: SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_size, waitlist.phone_number AS waitlist_phone_number, waitlist.status AS waitlist_status, waitlist.joined_at AS waitlist_joined_at, waitlist.notified_at AS waitlist_notified_at, waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id 
+E       FROM waitlist 
+E       WHERE waitlist.id = ?
+E        LIMIT ? OFFSET ?]
+E       [parameters: (2, 1, 0)]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+_______________________________________________________________________________________ test_clear_table_workflow ________________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa4c3d10d0>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c3d1d30>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa4725d610>
+parameters = [(1, 1, 0)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f23e30>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c3d1d30>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: waitlist
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_clear_table_workflow():
+        headers = get_auth_headers()
+    
+        # Seat party first
+>       client.post("/api/waitlist/1/seat", json={"table_id": 1}, headers=headers)
+
+tests/test_api.py:136: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:552: in post
+    return super().post(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/waitlist.py:37: in seat_party
+    result = store.seat_party(party_id, payload.table_id)
+app/store.py:267: in seat_party
+    w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2766: in first
+    return self.limit(1)._iter().first()  # type: ignore
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f23e30>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa4c3d1d30>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+E       [SQL: SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_size, waitlist.phone_number AS waitlist_phone_number, waitlist.status AS waitlist_status, waitlist.joined_at AS waitlist_joined_at, waitlist.notified_at AS waitlist_notified_at, waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id 
+E       FROM waitlist 
+E       WHERE waitlist.id = ?
+E        LIMIT ? OFFSET ?]
+E       [parameters: (1, 1, 0)]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+________________________________________________________________________________________ test_cancel_party_public ________________________________________________________________________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7faa472053d0>, dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa47205370>, statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7faa4725d610>
+parameters = [(1, 1, 0)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f235e0>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa47205370>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: waitlist
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_cancel_party_public():
+        # Seated first
+        headers = get_auth_headers()
+>       client.post("/api/waitlist/1/seat", json={"table_id": 1}, headers=headers)
+
+tests/test_api.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.local/lib/python3.9/site-packages/starlette/testclient.py:552: in post
+    return super().post(
+../.local/lib/python3.9/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+../.local/lib/python3.9/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+../.local/lib/python3.9/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../.local/lib/python3.9/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../.local/lib/python3.9/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../.local/lib/python3.9/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../.local/lib/python3.9/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+../.local/lib/python3.9/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+/usr/lib64/python3.9/concurrent/futures/_base.py:446: in result
+    return self.__get_result()
+/usr/lib64/python3.9/concurrent/futures/_base.py:391: in __get_result
+    raise self._exception
+../.local/lib/python3.9/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+../.local/lib/python3.9/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../.local/lib/python3.9/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:121: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../.local/lib/python3.9/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:107: in app
+    response = await f(request)
+../.local/lib/python3.9/site-packages/fastapi/routing.py:426: in app
+    raw_response = await run_endpoint_function(
+../.local/lib/python3.9/site-packages/fastapi/routing.py:314: in run_endpoint_function
+    return await dependant.call(**values)
+app/routers/waitlist.py:37: in seat_party
+    result = store.seat_party(party_id, payload.table_id)
+app/store.py:267: in seat_party
+    w = db.query(DBWaitlistEntry).filter(DBWaitlistEntry.id == party_id).first()
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2766: in first
+    return self.limit(1)._iter().first()  # type: ignore
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../.local/lib/python3.9/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../.local/lib/python3.9/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7faa4e043fa0>, cursor = <sqlite3.Cursor object at 0x7faa47f235e0>
+statement = 'SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_... waitlist_seated_at, waitlist.table_id AS waitlist_table_id \nFROM waitlist \nWHERE waitlist.id = ?\n LIMIT ? OFFSET ?'
+parameters = (1, 1, 0), context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7faa47205370>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+E       [SQL: SELECT waitlist.id AS waitlist_id, waitlist.guest_name AS waitlist_guest_name, waitlist.party_size AS waitlist_party_size, waitlist.phone_number AS waitlist_phone_number, waitlist.status AS waitlist_status, waitlist.joined_at AS waitlist_joined_at, waitlist.notified_at AS waitlist_notified_at, waitlist.seated_at AS waitlist_seated_at, waitlist.table_id AS waitlist_table_id 
+E       FROM waitlist 
+E       WHERE waitlist.id = ?
+E        LIMIT ? OFFSET ?]
+E       [parameters: (1, 1, 0)]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+../.local/lib/python3.9/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+======================================================================================== short test summary info =========================================================================================
+FAILED tests/test_api.py::test_get_tables_public - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: tables
+FAILED tests/test_api.py::test_get_waitlist_public - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+FAILED tests/test_api.py::test_join_waitlist - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+FAILED tests/test_api.py::test_notify_party_with_auth - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+FAILED tests/test_api.py::test_seat_party_with_auth - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+FAILED tests/test_api.py::test_seat_party_capacity_mismatch - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+FAILED tests/test_api.py::test_clear_table_workflow - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+FAILED tests/test_api.py::test_cancel_party_public - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: waitlist
+====================================================================================== 8 failed, 5 passed in 5.43s =======================================================================================
+Exit Code: 1
+Process Group PGID: 5955
+</untrusted_context>

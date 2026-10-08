@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "/home/ec2-user": "ec2-user",
+    "/home/ec2-user/_docs": "docs",
+    "/home/ec2-user/frontend": "frontend",
+    "/home/ec2-user/homework4/order-tracker": "order-tracker",
+    "/home/ec2-user/homework4": "homework4"
+  }
+}
